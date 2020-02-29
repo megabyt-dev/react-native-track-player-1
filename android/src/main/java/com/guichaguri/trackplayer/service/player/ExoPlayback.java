@@ -13,6 +13,7 @@ import com.google.android.exoplayer2.metadata.icy.IcyHeaders;
 import com.google.android.exoplayer2.metadata.icy.IcyInfo;
 import com.google.android.exoplayer2.metadata.id3.TextInformationFrame;
 import com.google.android.exoplayer2.metadata.id3.UrlLinkFrame;
+import com.google.android.exoplayer2.source.BehindLiveWindowException;
 import com.google.android.exoplayer2.source.TrackGroup;
 import com.google.android.exoplayer2.source.TrackGroupArray;
 import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
@@ -322,10 +323,15 @@ public abstract class ExoPlayback<T extends Player> implements EventListener, Me
 
     @Override
     public void onPlayerError(ExoPlaybackException error) {
-        String code;
+        String code = "null";
 
         if(error.type == ExoPlaybackException.TYPE_SOURCE) {
-            code = "playback-source";
+            if (isBehindLiveWindow(error)) {
+                code = "behind-live-window";
+                manager.onError(code, error.getCause().getMessage());
+            } else {
+                code = "playback-source";
+            }
         } else if(error.type == ExoPlaybackException.TYPE_RENDERER) {
             code = "playback-renderer";
         } else {
@@ -333,6 +339,20 @@ public abstract class ExoPlayback<T extends Player> implements EventListener, Me
         }
 
         manager.onError(code, error.getCause().getMessage());
+    }
+
+    private static boolean isBehindLiveWindow(ExoPlaybackException e) {
+        if (e.type != ExoPlaybackException.TYPE_SOURCE) {
+            return false;
+        }
+        Throwable cause = e.getSourceException();
+        while (cause != null) {
+            if (cause instanceof BehindLiveWindowException) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     @Override

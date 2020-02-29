@@ -25,6 +25,7 @@ import com.google.android.exoplayer2.ExoPlayerFactory;
 import com.google.android.exoplayer2.LoadControl;
 import com.google.android.exoplayer2.SimpleExoPlayer;
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
+import com.google.android.exoplayer2.upstream.DefaultAllocator;
 import com.guichaguri.trackplayer.module.MusicEvents;
 import com.guichaguri.trackplayer.service.metadata.MetadataManager;
 import com.guichaguri.trackplayer.service.models.Track;
@@ -121,13 +122,22 @@ public class MusicManager implements OnAudioFocusChangeListener {
         int backBuffer = (int)Utils.toMillis(options.getDouble("backBuffer", Utils.toSeconds(DEFAULT_BACK_BUFFER_DURATION_MS)));
         long cacheMaxSize = (long)(options.getDouble("maxCacheSize", 0) * 1024);
         int multiplier = DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS / DEFAULT_BUFFER_FOR_PLAYBACK_MS;
+        DefaultAllocator allocator = new DefaultAllocator(true, 5000);
+
 
         LoadControl control = new DefaultLoadControl.Builder()
                 .setBufferDurationsMs(minBuffer, maxBuffer, playBuffer, playBuffer * multiplier)
+                .setAllocator(allocator)
+                .setTargetBufferBytes(-1)
+                .setPrioritizeTimeOverSizeThresholds(false)
                 .setBackBuffer(backBuffer, false)
                 .createDefaultLoadControl();
 
-        SimpleExoPlayer player = ExoPlayerFactory.newSimpleInstance(service, new DefaultRenderersFactory(service), new DefaultTrackSelector(), control);
+        SimpleExoPlayer player =
+                new SimpleExoPlayer.Builder(service, new DefaultRenderersFactory(service))
+                        .setTrackSelector(new DefaultTrackSelector())
+                        .setLoadControl(control)
+                        .build();
 
         player.setAudioAttributes(new com.google.android.exoplayer2.audio.AudioAttributes.Builder()
                 .setContentType(C.CONTENT_TYPE_MUSIC).setUsage(C.USAGE_MEDIA).build());
@@ -250,6 +260,9 @@ public class MusicManager implements OnAudioFocusChangeListener {
         Bundle bundle = new Bundle();
         bundle.putString("code", code);
         bundle.putString("message", error);
+        if(code == "behind-live-window"){
+            service.emit(MusicEvents.BEHIND_LIVE_WINDOW, bundle);
+        }
         service.emit(MusicEvents.PLAYBACK_ERROR, bundle);
     }
 
