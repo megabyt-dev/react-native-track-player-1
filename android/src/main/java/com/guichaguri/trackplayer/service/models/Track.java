@@ -216,6 +216,7 @@ public class Track {
                 return createDashSource(ds);
             case HLS:
                 return new HlsMediaSource.Factory(ds)
+                        .setAllowChunklessPreparation(true)
                         .createMediaSource(uri);
             case SMOOTH_STREAMING:
                 return createSsSource(ds);
